@@ -1,0 +1,305 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Titre</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.50.1/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>x
+</head>
+<body>
+
+<script type="text/javascript">
+
+var config = {
+    type: Phaser.AUTO,
+    width: 1280,
+    height: 720,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 },
+            debug: false
+        }
+    },
+    input:{gamepad:true},
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+var paddle;
+var paddleConnected=false;
+var player;
+var ennemi;
+var child;
+var cursors;
+var gameOver = false;
+
+var game = new Phaser.Game(config);
+
+function preload ()
+{
+    // Interface
+    this.load.spritesheet('Champi', 'assets/Perso.png', { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet('Vie', 'assets/barre De vie.png', { frameWidth: 400, frameHeight: 139 });
+
+    // Items
+    this.load.image('Monnaie', 'assets/Monnais.png');
+    this.load.image('Soin','assets/Vie.png')
+    this.load.image('Clé', 'assets/Clé.png')
+
+    // Carte
+    this.load.image('Tileset', 'SpritesSheetComplet.png')
+    this.load.tilemapTiledJSON('Map', 'MapT.json');
+    
+}
+
+function create ()
+{
+    // Carte
+    let Village = this.make.tilemap({key:'Map'});
+
+    let Terrain = Village.addTilesetImage('SpritesSheetComplet','Tileset');
+
+    let Ground = Village.createLayer('Ground', Terrain, 0, 0).setDepth(-7);
+    let Layer1 = Village.createLayer('Layer 1', Terrain, 0, 0).setDepth(-6);
+    let Layer2 = Village.createLayer('Layer 2', Terrain, 0, 0).setDepth(-5);
+    let Layer3 = Village.createLayer('Layer 3', Terrain, 0, 0).setDepth(-4);
+    let Layer4 = Village.createLayer('Layer 4', Terrain, 0, 0).setDepth(-3);
+    let Layer5 = Village.createLayer('Layer 5', Terrain, 0, 0).setDepth(-2);
+    let Layer6 = Village.createLayer('Layer 6', Terrain, 0, 0).setDepth(-1);
+
+    // Affichage de la barre de vie et de la monnais
+    this.vie = this.add.sprite(220,100,'Vie').setScrollFactor(0);
+    this.compte = this.add.sprite(550,100,'Monnais').setScrollFactor(0);
+
+    // Spawn du personnage
+    player = this.physics.add.sprite(400,450, 'Champi');
+
+    // Collisions
+    this.physics.add.collider(player, Ground);
+    Ground.setCollisionByProperty({Collisions:true});
+
+    this.physics.add.collider(player, Layer1);
+    Layer1.setCollisionByProperty({Collisions:true});
+
+    this.physics.add.collider(player, Layer2);
+    Layer2.setCollisionByProperty({Collisions:true});
+
+    this.physics.add.collider(player, Layer3);
+    Layer3.setCollisionByProperty({Collisions:true});
+
+    this.physics.add.collider(player, Layer4);
+    Layer4.setCollisionByProperty({Collisions:true});
+
+    this.physics.add.collider(player, Layer5);
+    Layer5.setCollisionByProperty({Collisions:true});
+
+    this.physics.add.collider(player, Layer6);
+    Layer6.setCollisionByProperty({Collisions:true});
+
+
+    this.physics.world.setBounds(0,0, Village.widthInPixels, Village.heightInPixels);
+    player.setCollideWorldBounds(true);
+
+    //  Animations du personnage
+    this.anims.create({
+        key: 'normal',
+        frames: [ { key: 'Heros', frame: 0 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'up',
+        frames: this.anims.generateFrameNumbers('Hero', { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: 1
+    });
+
+    this.anims.create({
+        key: 'down',
+        frames: this.anims.generateFrameNumbers('Hero', { start: 4, end: 7 }),
+        frameRate: 10,
+        repeat: 1
+    });
+    
+    this.anims.create({
+        key: 'left',
+        frames: this.anims.generateFrameNumbers('Hero', { start: 8, end: 11 }),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'right',
+        frames: this.anims.generateFrameNumbers('Hero', { start: 12, end: 15 }),
+        frameRate: 10,
+        repeat: 1
+    });
+
+    // Changements de la barre de vie
+    this.anims.create({
+        key: 'Vie3',
+        frames: [ { key: 'Vie', frame: 0 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'Vie2',
+        frames: [ { key: 'Vie', frame: 1 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'Vie1',
+        frames: [ { key: 'Vie', frame: 2 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'Vie0',
+        frames: [ { key: 'Vie', frame: 3 } ],
+        frameRate: 20
+    });
+
+    this.life = 3;
+
+
+
+    cursors = this.input.keyboard.createCursorKeys();
+
+    
+    // Camera
+    this.cameras.main.startFollow(player)
+    this.cameras.main.setBounds(0,0,Village.widthInPixels, Village.heightInPixels);
+
+
+function update ()
+
+{
+    this.input.gamepad.once('connected', function (pad) {
+    paddleConnected = true;
+    paddle = pad;
+    });
+
+       // Déplacements Personnage
+    if (gameOver)
+    {
+        return;
+    }
+    const speed = 160;
+    this.coeur.anims.play('Vie3',true)
+
+    player.setVelocity(0);
+    if (cursors.left.isDown)
+
+    {
+        this.player.direction ='left'
+        player.setVelocityX(-speed);
+        player.anims.play('left', true);
+    }
+
+    else if (cursors.right.isDown)
+
+    {
+        this.player.direction ='right'
+        player.setVelocityX(speed);
+        player.anims.play('right', true);
+    }
+    
+    else if (cursors.up.isDown)
+
+    {
+        this.player.direction ='up'
+        player.setVelocityY(-speed);
+        player.anims.play('up');
+    }
+
+    else if (cursors.down.isDown)
+
+    {
+        this.player.direction ='down'
+        player.setVelocityY(speed);
+        player.anims.play('down');
+    }
+
+    else
+
+    {
+        player.setVelocityX(0);
+        player.anims.play('normal');
+    }
+
+  
+      // Dégats
+function Damage (player, ennemi)
+{
+    this.coeur.anims.play('Vie4',false)
+    this.life -= 1
+    if (this.life == 3){
+        this.coeur.anims.play('Vie3',true)
+    }
+    if (this.life == 2){
+        this.coeur.anims.play('Vie3',false)
+        this.coeur.anims.play('Vie2',true)
+    }
+    if (this.life == 1){
+        this.coeur.anims.play('Vie2',false)
+        this.coeur.anims.play('Vie1',true)
+    }
+    if (this.life == 0){
+        this.coeur.anims.play('Vie1',false)
+        this.coeur.anims.play('Vie0',true)
+        gameOver = true;
+    }
+}
+    
+    
+      // Commandes de la manette
+    if (paddleConnected == true)
+    {
+
+        if (paddle.up)
+
+        {
+        this.player.direction ='up'
+        player.setVelocityY(-160);
+        player.anims.play('up', true);
+        }
+
+        else if (paddle.down)
+
+        {
+        this.player.direction ='down'
+        player.setVelocityY(160);
+        player.anims.play('down', true);
+        }
+
+        else if (paddle.right)
+
+        {
+        this.player.direction ='right'
+        player.setVelocityX(160);
+        player.anims.play('right', true);
+        }
+
+        else if (paddle.left )
+
+        {
+        this.player.direction ='left'
+        player.setVelocityX(-160);
+        player.anims.play('left', true);
+        }
+    }
+}
+
+</script>
+
+</body>
+</html>
